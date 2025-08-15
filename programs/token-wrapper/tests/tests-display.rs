@@ -299,7 +299,34 @@ impl TokenWrapperTest {
         context.process_instruction(&create_mint_instruction)
     }
 
+    #[inline(always)]
     pub fn swap_to_wrapped(&self, context: &mut MolluskContext<TokenWrapperAccountStore>, amount:u64) -> ContextResult {
+        self.swap(
+            context, 
+            SwapDirection::ToWrapped, 
+            amount
+        )
+    }
+
+    #[inline(always)]
+    pub fn swap_to_wrapped_default(&self, context: &mut MolluskContext<TokenWrapperAccountStore>)->ContextResult{
+        self.swap_to_wrapped(context, 100_000)
+    }
+
+    #[inline(always)]
+    pub fn swap_to_source(&self, context: &mut MolluskContext<TokenWrapperAccountStore>, amount:u64)->ContextResult {
+        self.swap(
+            context, 
+            SwapDirection::ToSource, 
+            amount
+        )
+    }
+
+    pub fn swap_to_source_default(&self, context: &mut MolluskContext<TokenWrapperAccountStore>)->ContextResult{
+        self.swap_to_source(context, 100_000)
+    }
+
+    pub fn swap(&self, context: &mut MolluskContext<TokenWrapperAccountStore>, direction:SwapDirection, amount:u64)->ContextResult {
 
         let mut swap_accounts = Vec::<AccountMeta>::with_capacity(13);
 
@@ -329,60 +356,18 @@ impl TokenWrapperTest {
 
         swap_accounts.push(AccountMeta::new_readonly(Self::ASSOCIATED_TOKEN_PROGRAM, false));
 
+        let data = match direction {
+            SwapDirection::ToWrapped => token_wrapper::instruction::SwapToWrapped{amount}.data(),
+            SwapDirection::ToSource => token_wrapper::instruction::SwapToSource{amount}.data(),
+        };
+
         let swap_instruction = Instruction {
             program_id: token_wrapper::ID,
             accounts: swap_accounts,
-            data: token_wrapper::instruction::SwapToWrapped{amount}.data()
+            data
         };
+
         context.process_instruction(&swap_instruction)
-    }
-
-    #[inline(always)]
-    pub fn swap_to_wrapped_default(&self, context: &mut MolluskContext<TokenWrapperAccountStore>)->ContextResult{
-        self.swap_to_wrapped(context, 100_000)
-    }
-
-    pub fn swap_to_source(&self, context: &mut MolluskContext<TokenWrapperAccountStore>, amount:u64)->ContextResult {
-
-    let mut swap_accounts = Vec::<AccountMeta>::with_capacity(13);
-
-    swap_accounts.push(AccountMeta::new(self.payer.pubkey(), true));
-
-    swap_accounts.push(AccountMeta::new(self.buyer_mint_ata, false));
-
-    swap_accounts.push(AccountMeta::new(self.buyer_wrapped_mint_ata, false));
-
-    swap_accounts.push(AccountMeta::new_readonly(self.vault_authority, false));
-
-    swap_accounts.push(AccountMeta::new(self.vault, false));
-
-    swap_accounts.push(AccountMeta::new_readonly(self.mint_authority, false));
-
-    swap_accounts.push(AccountMeta::new_readonly(self.source_mint.pubkey(), false));
-
-    swap_accounts.push(AccountMeta::new(self.wrapped_mint.pubkey(), false));
-
-    swap_accounts.push(AccountMeta::new_readonly(self.source_mint_exists, false));
-
-    swap_accounts.push(AccountMeta::new_readonly(self.wrapped_mint_exists, false));
-
-    swap_accounts.push(AccountMeta::new_readonly(Self::SYSTEM_PROGRAM, false));
-
-    swap_accounts.push(AccountMeta::new_readonly(Self::TOKEN_PROGRAM, false));
-
-    swap_accounts.push(AccountMeta::new_readonly(Self::ASSOCIATED_TOKEN_PROGRAM, false));
-
-    let swap_instruction = Instruction {
-        program_id: token_wrapper::ID,
-        accounts: swap_accounts,
-        data: token_wrapper::instruction::SwapToSource{amount}.data()
-    };
-
-    context.process_instruction(&swap_instruction)
-}
-
-    pub fn swap_to_source_default(&self, context: &mut MolluskContext<TokenWrapperAccountStore>)->ContextResult{
-        self.swap_to_source(context, 100_000)
     }
 
     pub const TOKEN_PROGRAM:Pubkey = spl_token::ID; 
@@ -446,4 +431,8 @@ pub  fn log_token_accounts(program_test_context: &MolluskContext<TokenWrapperAcc
     Ok(())
 }
 
+pub enum SwapDirection {
+    ToWrapped,
+    ToSource,
+}
 }
