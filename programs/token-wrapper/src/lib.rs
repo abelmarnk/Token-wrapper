@@ -14,7 +14,13 @@ pub mod token_wrapper {
     pub fn create_mint(ctx: Context<CreateMint>) -> Result<()> {
         ctx.accounts.wrapped_mint_exists.set_inner(
             WrappedMint { 
-                source_mint:ctx.accounts.source_mint.key() 
+                source_mint:ctx.accounts.source_mint.key(),
+                bump:ctx.bumps.wrapped_mint_exists
+            }
+        );
+        ctx.accounts.source_mint_exists.set_inner(
+            SourceMint { 
+                bump:ctx.bumps.source_mint_exists
             }
         );
         Ok(())
@@ -232,14 +238,14 @@ pub struct Swap<'info>{
 
     #[account(
         seeds = [b"exists", source_mint.key().as_ref()],
-        bump
+        bump = source_mint_exists.bump
     )]
     source_mint_exists:Account<'info, SourceMint>,
 
     #[account(
         seeds = [b"exists", wrapped_mint.key().as_ref()],
         has_one = source_mint,
-        bump
+        bump = wrapped_mint_exists.bump
     )]
     wrapped_mint_exists:Account<'info, WrappedMint>,
 
@@ -252,13 +258,14 @@ pub struct Swap<'info>{
 #[derive(InitSpace)]
 #[account(discriminator = 1)]
 pub struct SourceMint{
-
+    pub bump:u8,
 }
 
 #[derive(InitSpace)]
 #[account(discriminator = 2)]
 pub struct WrappedMint{
-    pub source_mint:Pubkey
+    pub source_mint:Pubkey,
+    pub bump:u8,
 }
 
 #[error_code]
