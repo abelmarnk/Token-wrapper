@@ -21,9 +21,9 @@ test-sbf = []
 [dependencies]
 anchor-lang = {version = "0.31.1", features=["init-if-needed"]}
 anchor-spl = "0.31.1"
-anyhow = "1.0.99"
 
 [dev-dependencies]
+anyhow = "1.0.99"
 mollusk-svm = "0.4.2"
 mollusk-svm-programs-token = "0.4.2"
 solana-sdk = "2.3.1"

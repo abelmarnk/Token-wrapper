@@ -12,14 +12,9 @@ pub mod token_wrapper {
 
     #[instruction(discriminator = 0)]
     pub fn create_mint(ctx: Context<CreateMint>) -> Result<()> {
-        ctx.accounts.wrapped_mint_exists.set_inner(
-            WrappedMint { 
-                source_mint:ctx.accounts.source_mint.key(),
-                bump:ctx.bumps.wrapped_mint_exists
-            }
-        );
         ctx.accounts.source_mint_exists.set_inner(
-            SourceMint { 
+            SourceMint {
+                wrapped_mint: ctx.accounts.wrapped_mint.key(),
                 bump:ctx.bumps.source_mint_exists
             }
         );
@@ -46,7 +41,7 @@ pub mod token_wrapper {
 
         let wrapped_mint_key_bytes = ctx.accounts.wrapped_mint.key().to_bytes();
 
-        let seeds = [b"mint--authority", wrapped_mint_key_bytes.as_ref(), &[ctx.bumps.mint_authority]];
+        let seeds = [b"mint-authority", wrapped_mint_key_bytes.as_ref(), &[ctx.bumps.mint_authority]];
 
         let signer = &[&seeds[..]];
 
@@ -78,7 +73,7 @@ pub mod token_wrapper {
 
         let source_mint_key_bytes = ctx.accounts.source_mint.key().to_bytes();
 
-        let seeds = [b"vault--authority", source_mint_key_bytes.as_ref(), &[ctx.bumps.vault_authority]];
+        let seeds = [b"vault-authority", source_mint_key_bytes.as_ref(), &[ctx.bumps.vault_authority]];
 
         let signer = &[&seeds[..]];
 
@@ -123,7 +118,7 @@ pub struct CreateMint<'info>{
     payer:Signer<'info>,
 
     #[account(
-        seeds = [b"mint--authority", wrapped_mint.key().as_ref()],
+        seeds = [b"mint-authority", wrapped_mint.key().as_ref()],
         bump
     )]
     /// CHECK: just signs
@@ -140,7 +135,7 @@ pub struct CreateMint<'info>{
     wrapped_mint:Account<'info, Mint>,
 
     #[account(
-        seeds = [b"vault--authority", source_mint.key().as_ref()],
+        seeds = [b"vault-authority", source_mint.key().as_ref()],
         bump
     )]
     /// CHECK: just signs
@@ -158,19 +153,10 @@ pub struct CreateMint<'info>{
         init,
         payer = payer,
         space = SourceMint::DISCRIMINATOR.len() + SourceMint::INIT_SPACE,
-        seeds = [b"exists", source_mint.key().as_ref()],
+        seeds = [b"mint", source_mint.key().as_ref()],
         bump
     )]
     source_mint_exists:Account<'info, SourceMint>,
-
-    #[account(
-        init,
-        payer = payer,
-        space = WrappedMint::DISCRIMINATOR.len() + WrappedMint::INIT_SPACE,
-        seeds = [b"exists", wrapped_mint.key().as_ref()],
-        bump
-    )]
-    wrapped_mint_exists:Account<'info, WrappedMint>,
     
     system_program:Program<'info, System>,
     token_program:Program<'info, Token>,
@@ -204,7 +190,7 @@ pub struct Swap<'info>{
     buyer_wrapped_mint_ata:Account<'info, TokenAccount>,
 
     #[account(
-        seeds = [b"vault--authority", source_mint.key().as_ref()],
+        seeds = [b"vault-authority", source_mint.key().as_ref()],
         bump
     )]
     /// CHECK: just signs
@@ -219,7 +205,7 @@ pub struct Swap<'info>{
     vault:Account<'info, TokenAccount>,
 
     #[account(
-        seeds = [b"mint--authority", wrapped_mint.key().as_ref()],
+        seeds = [b"mint-authority", wrapped_mint.key().as_ref()],
         bump
     )]
     /// CHECK: just signs
@@ -234,17 +220,12 @@ pub struct Swap<'info>{
     wrapped_mint:Account<'info, Mint>,
 
     #[account(
-        seeds = [b"exists", source_mint.key().as_ref()],
-        bump = source_mint_exists.bump
+        seeds = [b"mint", source_mint.key().as_ref()],
+        bump = source_mint_account.bump,
+        has_one = wrapped_mint
     )]
-    source_mint_exists:Account<'info, SourceMint>,
+    source_mint_account:Account<'info, SourceMint>,
 
-    #[account(
-        seeds = [b"exists", wrapped_mint.key().as_ref()],
-        has_one = source_mint,
-        bump = wrapped_mint_exists.bump
-    )]
-    wrapped_mint_exists:Account<'info, WrappedMint>,
 
     system_program:Program<'info, System>,
     token_program:Program<'info, Token>,
@@ -255,19 +236,6 @@ pub struct Swap<'info>{
 #[derive(InitSpace)]
 #[account(discriminator = 1)]
 pub struct SourceMint{
+    pub wrapped_mint:Pubkey,
     pub bump:u8
-}
-
-#[derive(InitSpace)]
-#[account(discriminator = 2)]
-pub struct WrappedMint{
-    pub source_mint:Pubkey,
-    pub bump:u8
-}
-
-#[error_code]
-pub enum WrapError{
-    InsufficientVaultLiquidity,
-    InsuffientSourceTokens,
-    InsuffientWrapTokens,
 }
