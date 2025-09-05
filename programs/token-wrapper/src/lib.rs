@@ -12,6 +12,7 @@ pub mod token_wrapper {
 
     #[instruction(discriminator = 0)]
     pub fn create_mint(ctx: Context<CreateMint>) -> Result<()> {
+        
         ctx.accounts.source_mint_exists.set_inner(
             SourceMint {
                 wrapped_mint: ctx.accounts.wrapped_mint.key(),
@@ -51,10 +52,6 @@ pub mod token_wrapper {
             to:ctx.accounts.buyer_wrapped_mint_ata.to_account_info(),
             authority:ctx.accounts.mint_authority.to_account_info()
         };
-
-        msg!("Expected mint authority: {:?}", ctx.accounts.mint_authority.key());
-
-        msg!("Mint authority: {:?}", ctx.accounts.wrapped_mint.mint_authority);
 
         let mint_to_context = 
             CpiContext::new_with_signer(

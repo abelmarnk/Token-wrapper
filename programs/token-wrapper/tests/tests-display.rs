@@ -4,15 +4,19 @@ mod tests {
 use std::collections::HashMap;
 use anyhow::Result as AnyResult;
 use anchor_lang::{
-    InstructionData, prelude::{AccountMeta, ProgramError, Pubkey}, solana_program::instruction::Instruction, system_program
+    solana_program::{
+        system_instruction::SystemError,
+        program_error::ProgramError
+    },
+    InstructionData, prelude::{AccountMeta, Pubkey}, solana_program::instruction::Instruction, system_program
 };
-use anchor_spl::{associated_token::get_associated_token_address};
+use anchor_spl::{associated_token::get_associated_token_address, token::spl_token::error::TokenError};
 use spl_token::state::{Account as TokenAccount, GenericTokenAccount, Mint};
 use mollusk_svm_programs_token::{
     token::{create_account_for_mint, create_account_for_token_account}
 };
 use solana_sdk::{
-    account::Account, program_option::COption::{None as CNone}, 
+    account::Account, program_option::COption::None as CNone, 
     program_pack::Pack, rent::Rent, signature::Keypair, signer::Signer
 };
 use mollusk_svm::{
@@ -37,13 +41,6 @@ use token_wrapper::instruction::{
     program_test.setup_default(&mut account_store);
 
 
-    // Log the source mint account
-    println!("Source mint:- {:?}", 
-        account_store.get_account(&program_test.source_mint.pubkey()).
-            expect("Could not get mint account!!!")
-    );
-
-
     let mollusk_context = mollusk.with_context(account_store);
 
     mollusk_context.process_and_validate_instruction_chain(
@@ -54,51 +51,58 @@ use token_wrapper::instruction::{
         ]
     );
 
-    mollusk_context.account_store.borrow_mut().accounts_map.clear();
 
     // Failing test - 1
-    let mut account_store = TokenWrapperAccountStore::default();
+    let mut account_store = mollusk_context.account_store.borrow_mut();
+
+    account_store.accounts_map.clear();
 
     program_test.setup_fail_1(&mut account_store);
 
-    // Log the source mint account
-    println!("Source mint:- {:?}", 
-        account_store.get_account(&program_test.source_mint.pubkey()).
-            expect("Could not get mint account!!!")
-    );
+    
+    core::mem::drop(account_store);
 
     mollusk_context.process_and_validate_instruction_chain(
         &[
             (&program_test.get_create_mint_instruction(), &[Check::success()]),
-            (&program_test.get_swap_instruction(SwapType::SwapToWrapped), &[Check::err(ProgramError::InsufficientFunds)]),
+            (&program_test.get_swap_instruction(SwapType::SwapToWrapped), &[Check::err(TokenError::InsufficientFunds.into())]),
             // (&program_test.get_swap_instruction(SwapType::SwapToSource), &[Check::success()])
         ]
     );
 
-    mollusk_context.account_store.borrow_mut().accounts_map.clear();
-
-    let mut account_store = TokenWrapperAccountStore::default();
 
     // Failing test - 2
 
+    let mut account_store = mollusk_context.account_store.borrow_mut();
+
+    account_store.accounts_map.clear();
+
     program_test.setup_fail_2(&mut account_store);
+    
+    core::mem::drop(account_store);
 
     mollusk_context.process_and_validate_instruction_chain(
         &[
             (&program_test.get_create_mint_instruction(), &[Check::success()]),
             (&program_test.get_swap_instruction(SwapType::SwapToWrapped), &[Check::success()]),
-            (&program_test.get_swap_instruction(SwapType::SwapToSource), &[Check::err(ProgramError::InsufficientFunds)])
+            (&program_test.get_swap_instruction(SwapType::SwapToSource), &[Check::err(TokenError::InsufficientFunds.into())])
         ]
     );
 
     // Failing test 3
 
+    let mut account_store = mollusk_context.account_store.borrow_mut();
+
+    account_store.accounts_map.clear();
+
     program_test.setup_default(&mut account_store);
+
+    core::mem::drop(account_store);
 
     mollusk_context.process_and_validate_instruction_chain(
         &[
             (&program_test.get_create_mint_instruction(), &[Check::success()]),
-            (&program_test.get_create_mint_instruction(), &[Check::err(ProgramError::AccountAlreadyInitialized)]),
+            (&program_test.get_create_mint_instruction(), &[Check::err(ProgramError::Custom(SystemError::AccountAlreadyInUse as u32))]),
         ]
     );
 
