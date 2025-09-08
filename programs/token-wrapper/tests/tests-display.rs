@@ -1,20 +1,14 @@
 //#![cfg(feature = "test-sbf")]
-
 mod tests {
 use std::collections::HashMap;
 use anyhow::Result as AnyResult;
 use anchor_lang::{
-    solana_program::{
-        system_instruction::SystemError,
-        program_error::ProgramError
-    },
-    InstructionData, prelude::{AccountMeta, Pubkey}, solana_program::instruction::Instruction, system_program
+    InstructionData, prelude::{AccountMeta, Pubkey}, solana_program::{
+        instruction::Instruction, program_error::ProgramError, system_instruction::SystemError
+    }, system_program
 };
 use anchor_spl::{associated_token::get_associated_token_address, token::spl_token::error::TokenError};
 use spl_token::state::{Account as TokenAccount, GenericTokenAccount, Mint};
-use mollusk_svm_programs_token::{
-    token::{create_account_for_mint, create_account_for_token_account}
-};
 use solana_sdk::{
     account::Account, program_option::COption::None as CNone, 
     program_pack::Pack, rent::Rent, signature::Keypair, signer::Signer
@@ -22,11 +16,109 @@ use solana_sdk::{
 use mollusk_svm::{
     Mollusk, account_store::AccountStore, program::keyed_account_for_system_program, result::{Check}
 };
+use mollusk_svm_programs_token::{
+    token::{create_account_for_mint, create_account_for_token_account}
+};
 use token_wrapper::instruction::{
     CreateMint,
     SwapToWrapped,
     SwapToSource
 };
+
+fn make_check_swapped_to_wrapped(
+    buyer_mint_ata: Pubkey,
+    buyer_wrapped_mint_ata: Pubkey,
+    original_source_amount: u64,
+    original_wrapped_amount: u64,
+    wrap_amount: u64,
+) -> impl Fn(&[(Pubkey, Account)]) -> bool {
+    move |accounts: &[(Pubkey, Account)]| {
+        let user_source_account = accounts
+            .iter()
+            .find(|(key, _)| buyer_mint_ata.eq(key))
+            .map(|(_, account)| account)
+            .expect("Could not find user source account");
+
+        let user_wrapped_account = accounts
+            .iter()
+            .find(|(key, _)| buyer_wrapped_mint_ata.eq(key))
+            .map(|(_, account)| account)
+            .expect("Could not find user wrapped account");
+
+        let user_source_account = TokenAccount::unpack(&user_source_account.data)
+            .expect("Invalid source token account");
+
+        let user_wrapped_account = TokenAccount::unpack(&user_wrapped_account.data)
+            .expect("Invalid wrapped token account");
+
+        let mut okay = true;
+
+        if user_source_account.amount != original_source_amount - wrap_amount {
+            println!("Invalid state change!!!"); // Could optionally panic here based on config
+            okay = false;
+        } else {
+            println!("Valid state change!!!");
+        }
+
+        if user_wrapped_account.amount != original_wrapped_amount + wrap_amount {
+            println!("Invalid state change!!!");
+            okay = false;
+        } else {
+            println!("Valid state change!!!");
+        }
+
+        okay
+    }
+}
+
+fn make_check_swapped_to_source(
+    buyer_mint_ata: Pubkey,
+    buyer_wrapped_mint_ata: Pubkey,
+    original_source_amount: u64,
+    original_wrapped_amount: u64,
+    wrap_amount: u64,
+    source_amount: u64,
+) -> impl Fn(&[(Pubkey, Account)]) -> bool {
+    move |accounts: &[(Pubkey, Account)]| {
+        let user_source_account = accounts
+            .iter()
+            .find(|(key, _)| buyer_mint_ata.eq(key))
+            .map(|(_, account)| account)
+            .expect("Could not find user source account");
+
+        let user_wrapped_account = accounts
+            .iter()
+            .find(|(key, _)| buyer_wrapped_mint_ata.eq(key))
+            .map(|(_, account)| account)
+            .expect("Could not find user wrapped account");
+
+        let user_source_account = TokenAccount::unpack(&user_source_account.data)
+            .expect("Invalid source token account");
+
+        let user_wrapped_account = TokenAccount::unpack(&user_wrapped_account.data)
+            .expect("Invalid wrapped token account");
+
+        let mut okay = true;
+
+        let current_source_amount = original_source_amount - wrap_amount;
+        if user_source_account.amount != current_source_amount + source_amount {
+            println!("Invalid state change!!!"); // Could optionally panic here based on config
+            okay = false;
+        } else {
+            println!("Valid state change!!!");
+        }
+
+        let current_wrapped_amount = original_wrapped_amount + wrap_amount;
+        if user_wrapped_account.amount != current_wrapped_amount - source_amount {
+            println!("Invalid state change!!!");
+            okay = false;
+        } else {
+            println!("Valid state change!!!");
+        }
+
+        okay
+    }
+}
 
 #[test]
  fn passing_test_1() {
@@ -43,13 +135,34 @@ use token_wrapper::instruction::{
 
     let mollusk_context = mollusk.with_context(account_store);
 
+    
     mollusk_context.process_and_validate_instruction_chain(
         &[
             (&program_test.get_create_mint_instruction(), &[Check::success()]),
-            (&program_test.get_swap_instruction(SwapType::SwapToWrapped), &[Check::success()]),
-            (&program_test.get_swap_instruction(SwapType::SwapToSource), &[Check::success()])
+            (
+                &program_test.get_swap_instruction(SwapType::SwapToWrapped),
+                &[Check::success(), Check::custom(make_check_swapped_to_wrapped(
+                    program_test.buyer_mint_ata,
+                    program_test.buyer_wrapped_mint_ata,
+                    program_test.original_source_amount,
+                    program_test.original_wrapped_amount,
+                    program_test.wrap_amount,
+                ), "check_swapped_to_wrapped")],
+            ),
+            (
+                &program_test.get_swap_instruction(SwapType::SwapToSource),
+                &[Check::success(), Check::custom(make_check_swapped_to_source(
+                    program_test.buyer_mint_ata,
+                    program_test.buyer_wrapped_mint_ata,
+                    program_test.original_source_amount,
+                    program_test.original_wrapped_amount,
+                    program_test.wrap_amount,
+                    program_test.source_amount,
+                ), "check_swapped_to_source")],
+            ),
         ]
     );
+
 
 
     // Failing test - 1
@@ -57,8 +170,10 @@ use token_wrapper::instruction::{
 
     account_store.accounts_map.clear();
 
-    program_test.setup_fail_1(&mut account_store);
 
+    let mut program_test = TokenWrapperTest::new();
+
+    program_test.setup_fail_1(&mut account_store);
     
     core::mem::drop(account_store);
 
@@ -77,6 +192,9 @@ use token_wrapper::instruction::{
 
     account_store.accounts_map.clear();
 
+
+    let mut program_test = TokenWrapperTest::new();
+    
     program_test.setup_fail_2(&mut account_store);
     
     core::mem::drop(account_store);
@@ -84,7 +202,15 @@ use token_wrapper::instruction::{
     mollusk_context.process_and_validate_instruction_chain(
         &[
             (&program_test.get_create_mint_instruction(), &[Check::success()]),
-            (&program_test.get_swap_instruction(SwapType::SwapToWrapped), &[Check::success()]),
+            (&program_test.get_swap_instruction(SwapType::SwapToWrapped), 
+                &[Check::success(), Check::custom(make_check_swapped_to_wrapped(
+                    program_test.buyer_mint_ata,
+                    program_test.buyer_wrapped_mint_ata,
+                    program_test.original_source_amount,
+                    program_test.original_wrapped_amount,
+                    program_test.wrap_amount,
+                ), "check_swapped_to_wrapped")],
+            ),
             (&program_test.get_swap_instruction(SwapType::SwapToSource), &[Check::err(TokenError::InsufficientFunds.into())])
         ]
     );
@@ -94,6 +220,9 @@ use token_wrapper::instruction::{
     let mut account_store = mollusk_context.account_store.borrow_mut();
 
     account_store.accounts_map.clear();
+
+
+    let mut program_test = TokenWrapperTest::new();
 
     program_test.setup_default(&mut account_store);
 
@@ -162,6 +291,8 @@ pub struct TokenWrapperTest {
     pub buyer_wrapped_mint_ata: Pubkey, 
 
     // Data 
+    pub original_source_amount:u64,
+    pub original_wrapped_amount:u64,
     pub wrap_amount:u64,
     pub source_amount:u64,
 }
@@ -208,6 +339,9 @@ impl TokenWrapperTest {
             vault,
             buyer_mint_ata,
             buyer_wrapped_mint_ata,
+
+            original_source_amount:0,
+            original_wrapped_amount:0,
 
             wrap_amount:0,
             source_amount:0
@@ -274,9 +408,12 @@ impl TokenWrapperTest {
         );
 
         // Add the programs
-        let token_key_account_pair = mollusk_svm_programs_token::token::keyed_account();
-        let associated_token_key_account_pair = mollusk_svm_programs_token::associated_token::keyed_account();
-        let system_program_key_account_pair = keyed_account_for_system_program();
+        let token_key_account_pair = 
+            mollusk_svm_programs_token::token::keyed_account();
+        let associated_token_key_account_pair = 
+            mollusk_svm_programs_token::associated_token::keyed_account();
+        let system_program_key_account_pair = 
+            keyed_account_for_system_program();
         
         accounts.store_account(
             token_key_account_pair.0,
@@ -292,6 +429,10 @@ impl TokenWrapperTest {
             system_program_key_account_pair.0, 
             system_program_key_account_pair.1
         );
+
+        // Set the original balances
+        self.original_source_amount = token_account_balance;
+        self.original_wrapped_amount = 0;
 
         // Add the swap amounts
         self.wrap_amount = wrap_amount;

@@ -1831,9 +1831,8 @@ dependencies = [
 
 [[package]]
 name = "mollusk-svm"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ac533eca9acad4fb7b4714557cd6263d494c59c02c96036196d4143b68795a8"
+version = "0.5.1"
+source = "git+https://github.com/abelmarnk/mollusk#2380daf6b9de854706c4ba0c76f39a0b87aca0b0"
 dependencies = [
  "agave-feature-set",
  "agave-precompiles",
@@ -1871,9 +1870,8 @@ dependencies = [
 
 [[package]]
 name = "mollusk-svm-error"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4135aa8a9c9069b30109262e63795959040888586ea8f90809c4365a6d439ee9"
+version = "0.5.1"
+source = "git+https://github.com/abelmarnk/mollusk#2380daf6b9de854706c4ba0c76f39a0b87aca0b0"
 dependencies = [
  "solana-pubkey",
  "thiserror 1.0.69",
@@ -1881,9 +1879,8 @@ dependencies = [
 
 [[package]]
 name = "mollusk-svm-keys"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b230d33b0194b126be2c37a19bf4d59d8e80a5ce63e8d3d4135a6cbf89ed3302"
+version = "0.5.1"
+source = "git+https://github.com/abelmarnk/mollusk#2380daf6b9de854706c4ba0c76f39a0b87aca0b0"
 dependencies = [
  "mollusk-svm-error",
  "solana-account",
@@ -1894,9 +1891,8 @@ dependencies = [
 
 [[package]]
 name = "mollusk-svm-programs-token"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3efcb4cb61dbf93457a233025a403ba320b831f2c15da9e9a337c38e951eafa7"
+version = "0.5.1"
+source = "git+https://github.com/abelmarnk/mollusk#2380daf6b9de854706c4ba0c76f39a0b87aca0b0"
 dependencies = [
  "mollusk-svm",
  "solana-account",
@@ -1908,9 +1904,8 @@ dependencies = [
 
 [[package]]
 name = "mollusk-svm-result"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a4c788b78a077f73b466dbfa7510804136075fd8e6f3eca8392018991c46fef3"
+version = "0.5.1"
+source = "git+https://github.com/abelmarnk/mollusk#2380daf6b9de854706c4ba0c76f39a0b87aca0b0"
 dependencies = [
  "solana-account",
  "solana-instruction",

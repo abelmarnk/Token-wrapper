@@ -24,8 +24,8 @@ anchor-spl = "0.31.1"
 
 [dev-dependencies]
 anyhow = "1.0.99"
-mollusk-svm = "0.4.2"
-mollusk-svm-programs-token = "0.4.2"
+mollusk-svm = { git = "https://github.com/abelmarnk/mollusk", package = "mollusk-svm"}
+mollusk-svm-programs-token = { git = "https://github.com/abelmarnk/mollusk", package = "mollusk-svm-programs-token"}
 solana-sdk = "2.3.1"
 spl-token = "8.0.0"
 
