@@ -132,7 +132,6 @@ fn make_check_swapped_to_source(
     // Passing test
     program_test.setup_default(&mut account_store);
 
-
     let mollusk_context = mollusk.with_context(account_store);
 
     
@@ -170,9 +169,6 @@ fn make_check_swapped_to_source(
 
     account_store.accounts_map.clear();
 
-
-    let mut program_test = TokenWrapperTest::new();
-
     program_test.setup_fail_1(&mut account_store);
     
     core::mem::drop(account_store);
@@ -191,9 +187,6 @@ fn make_check_swapped_to_source(
     let mut account_store = mollusk_context.account_store.borrow_mut();
 
     account_store.accounts_map.clear();
-
-
-    let mut program_test = TokenWrapperTest::new();
     
     program_test.setup_fail_2(&mut account_store);
     
@@ -220,9 +213,6 @@ fn make_check_swapped_to_source(
     let mut account_store = mollusk_context.account_store.borrow_mut();
 
     account_store.accounts_map.clear();
-
-
-    let mut program_test = TokenWrapperTest::new();
 
     program_test.setup_default(&mut account_store);
 
